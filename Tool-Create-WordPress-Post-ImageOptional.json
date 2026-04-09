@@ -1,0 +1,1355 @@
+{
+  "name": "Tool-Create-WordPress-Post-ImageOptional",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nreturn items.map(item => {\n  const body = item.json.body;\n\n  const isEmpty = (val) => !val || val.trim?.() === \"\";\n\n  const isValid = (\n    body.PropertyID &&\n    !isEmpty(body.PostTitle) &&\n    !isEmpty(body.PostContent)\n  );\n\n  return {\n    json: {\n      PropertyID: body.PropertyID || null,\n      PostTitle: body.PostTitle || null,\n      PostContent: body.PostContent || null,\n      PostStatus: body.PostStatus || \"draft\",\n      FeaturedImageURL: body.FeaturedImageURL || null,\n      Categories: body.Categories,\n      Tags: body.Tags,\n      validate: isValid\n    }\n  };\n});\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3856,
+        -64
+      ],
+      "id": "814243f9-9b28-4f56-b70f-d5c0654cc56b",
+      "name": "validate_payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2458419b-d048-488b-bf3c-6d6840e401d5",
+              "leftValue": "={{ $json.validate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3696,
+        -64
+      ],
+      "id": "8ae945dc-c991-4192-b612-16616f115c3e",
+      "name": "has_payload"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2304,
+        -112
+      ],
+      "id": "e5ddcf0e-8972-4983-a825-268cc3064fd6",
+      "name": "get_image",
+      "alwaysOutputData": false,
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "70d499fd-eb8d-4aef-8be6-9cdc69817b48",
+              "name": "image_url",
+              "value": "={{ $json.guid.rendered }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1296,
+        -144
+      ],
+      "id": "0954ab99-ad57-49f7-8813-013d9d5ee45b",
+      "name": "extract_image_url"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get all input items (uploaded image URLs)\nconst items = $input.all();\n\n// 2. Get the HTML content from a separate variable or hardcoded (you can change this part)\nconst originalHtml = $node['Webhook1'].json.body.PostContent\n\n// 3. Extract new image URLs\nlet imageUrls = []\nitems.forEach(item => {\n  if(item.json.image_url){\n    imageUrls.push(item.json.image_url) \n  }\n});\n\nlet updatedHtml=originalHtml\nif(imageUrls.length){\n  \n// 4. Replace each <img src=\"...\"> one-by-one\nlet index = 0;\n updatedHtml = originalHtml.replace(\n  /<img[^>]+src=['\"]([^'\"]+)['\"][^>]*>/g,\n  (match, oldUrl) => {\n    const newUrl = imageUrls[index++];\n    return newUrl ? match.replace(oldUrl, newUrl) : match;\n  }\n);\n} \n\n// 5. Return the updated HTML only\nreturn [\n  {\n    json: {\n      updatedPostContent: updatedHtml\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        -144
+      ],
+      "id": "991eebf3-e8cb-48c2-919d-4fd8ea9e61a3",
+      "name": "replace_urls"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d4d83de3-7bf3-4d26-a1e6-7fea43efd54c",
+              "name": "Title",
+              "value": "={{ $('validate_payload').first().json.PostTitle }}",
+              "type": "string"
+            },
+            {
+              "id": "279aaadb-e0d1-493d-8647-dca3f38d7a52",
+              "name": "PostContent",
+              "value": "={{ $json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "06d62dc0-9b77-4307-9cf7-0a7f23d45235",
+              "name": "Featured_media",
+              "value": "={{ $('upload_featured_image').isExecuted ?$('upload_featured_image').first().json.id : $('validate_payload').first().json.FeaturedImageURL }}",
+              "type": "number"
+            },
+            {
+              "id": "8c1d0f04-830f-4fdf-ad23-fb0aa0b342a1",
+              "name": "Categories",
+              "value": "={{ $('validate_payload').first().json.Categories }}",
+              "type": "string"
+            },
+            {
+              "id": "459f4dc4-1234-4083-bcbc-beb1acf0fea5",
+              "name": "Tags",
+              "value": "={{ $('validate_payload').first().json.Tags || [] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        0
+      ],
+      "id": "05f15fa3-cbb2-4e81-bd1c-967b28d37910",
+      "name": "set_payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const updatedContent = $('validate_payload').first().json.PostContent\n\nreturn [\n  {\n    json: {\n\n      content: updatedContent\n        .replace(/```html/g, '')\n        .replace(/```/g, '')\n        .replace(/\\n/g, '')\n        .replaceAll('\"','')\n\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        0
+      ],
+      "id": "e4e40529-5be6-4665-b43f-f6706782190e",
+      "name": "clean_html"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e5690319-73e0-4824-b4fa-ce99cf581d77",
+              "leftValue": "={{ $json }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2528,
+        -96
+      ],
+      "id": "762bf615-0105-4ab3-8009-1e8676924078",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2400,
+        16
+      ],
+      "id": "ccf40903-5c3f-455f-a1a2-e84521073340",
+      "name": "no_url_found"
+    },
+    {
+      "parameters": {
+        "content": "## WordPress Payload Validation & Credential Resolution\n### This section receives a WordPress post payload via webhook, validates required publishing fields, resolves the correct WordPress credentials for the property, and ensures all required authentication data exists before proceeding to downstream publishing steps.\n### 1. Webhook\n* **Purpose:** Entry point for the workflow.\n* **Method:** POST\n* **Logic:** Receives the incoming request containing post data\n### 2. validate_payload\n* **Purpose:** Normalizes and validates the incoming webhook payload.\n* **Logic:**\n  * Extracts `body` from the webhook request.\n  * Checks required fields:\n    * `PropertyID` must exist\n    * `PostTitle` must not be empty\n    * `PostContent` must not be empty\n  * Applies defaults:\n    * `PostStatus` defaults to `draft`\n  * Adds a computed boolean flag: `validate`\n### 3. has_payload\n* **Purpose:** Determines whether the incoming payload is valid.\n* **Condition:**\n  * `validate === true`\n* **Outcome:**\n  * ✅ True Path: Payload contains all required publishing fields → continue workflow.\n  * ❌ False Path: Missing or invalid payload → workflow stops.\n* **Notes:** Prevents unnecessary WordPress or database calls when required data is missing.\n### 4. Wordpress Credentials\n* **Purpose:** Supplies WordPress authentication details.\n* **Logic:**\n  * Currently returns static credentials:\n    * `WPLogin`\n    * `WPPassword`\n    * `WPURL`\n### 5. check_wordpress_credentials\n* **Purpose:** Verifies that all required WordPress credentials are present.\n* **Conditions:**\n  * `WPLogin` exists\n  * `WPPassword` exists\n  * `WPURL` exists\n",
+        "height": 1192,
+        "width": 1184,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -4080,
+        -1040
+      ],
+      "typeVersion": 1,
+      "id": "98725194-e1f6-4589-860e-cf5ff1f431b7",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## WordPress Inline Image Extraction & Upload Automation\n### This section scans WordPress post content for inline images, validates image URLs, downloads each image, and uploads them to WordPress Media Library using authenticated API calls. Invalid or missing image URLs are safely handled to prevent failures.\n### 1. set_headers\n* **Purpose:** Prepares the Authorization header for WordPress REST API calls.\n### 2. extract_image_urls\n* **Purpose:** Extracts all image URLs from post HTML content.\n* **Logic:**\n  * Reads `PostContent` from the `validate_payload` node.\n  * Uses a regex to match `<img>` tags and extract `src` values.\n  * Supports both single (`'`) and double (`\"`) quotes.\n### 3. If\n* **Purpose:** Checks whether extracted image data exists.\n* **Outcome:**\n  * ✅ True Path: At least one image URL exists → proceed to download.\n  * ❌ False Path: No images found → route to `no_url_found`.\n### 4. no_url_found\n* **Purpose:** Graceful fallback when no image URLs are detected.\n* **Notes:** Keeps the workflow stable even if posts contain no images.\n### 5. get_image\n* **Purpose:** Downloads the image from the extracted image URL.\n* **Logic:**\n  * Performs an HTTP GET request using `imageUrl`.\n  * Binary image data is captured for upload.\n* **Notes:** Ensures broken or unreachable image URLs don’t break the entire flow.\n### 6. invalid_urls\n* **Purpose:** Captures image URLs that failed to download.\n* **Logic:**\n  * Stores the invalid `imageUrl` for logging or debugging.\n* **Notes:** Useful for monitoring content quality or external image issues.\n### 7. Loop Over Items\n* **Purpose:** Processes images one-by-one.\n* **Logic:**\n  * Splits extracted image URLs into individual batches.\n* **Notes:** Prevents API overload and allows controlled sequential uploads.\n### 8. Check extractDomain is exists\n* **Purpose:** Validates that the image URL has a usable domain.\n* **Condition:**\n  * `imageUrl.extractDomain()` exists.\n* **Outcome:**\n  * ✅ True Path: Valid filename can be generated → upload image.\n  * ❌ False Path: Skip and continue loop.\n* **Notes:** Prevents invalid filenames during WordPress media uploads.\n### 9. upload_images_to_wordpress\n* **Purpose:** Uploads each downloaded image to WordPress Media Library.\n  * Image is successfully stored in WordPress media.\n",
+        "height": 1416,
+        "width": 1528,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2880,
+        -1264
+      ],
+      "typeVersion": 1,
+      "id": "0d5724f8-006e-49e2-9f87-070d1d7658af",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## WordPress Post Creation with Image URL Replacement & Featured Image Handling\n### This workflow finalizes a WordPress post by replacing inline image URLs with newly uploaded media URLs, optionally uploading and assigning a featured image, cleaning HTML content, and creating the post in WordPress as a draft.\n### 1. extract_image_url\n* **Purpose:** Extracts the final WordPress media URL from uploaded image responses.\n* **Notes:** These URLs are later used to replace original inline image sources in the post content.\n### 2. replace_urls\n* **Purpose:** Replaces old inline image URLs in post HTML with newly uploaded WordPress media URLs.\n* **Logic:**\n  * Reads original `PostContent` from the webhook payload.\n  * Collects all `image_url` values from uploaded media items.\n  * Iterates through `<img src=\"...\">` tags and replaces each old URL sequentially.\n* **Notes:** Ensures all inline images are self-hosted on WordPress instead of external sources.\n### 3. Check featured media\n* **Purpose:** Determines whether the featured image is already a WordPress media ID or needs to be uploaded.\n* **Outcome:**\n  * ✅ True Path: Featured image already exists → skip upload.\n  * ❌ False Path: Featured image is a URL → download and upload it.\n### 4. download_featured_image\n* **Purpose:** Downloads the featured image when provided as an external URL.\n### 5. upload_featured_image\n* **Purpose:** Uploads the featured image to WordPress Media Library.\n* **Notes:** This `id` is later assigned as `featured_media` on the post.\n### 6. clean_html\n* **Purpose:** Sanitizes and normalizes the post HTML before publishing.\n* **Notes:** Prevents malformed HTML from breaking WordPress rendering.\n### 7. set_payload\n* **Purpose:** Constructs the final WordPress post payload.\n* **Fields Set:**\n  * `Title` – From validated payload\n  * `PostContent` – Cleaned and updated HTML\n  * `Featured_media` – Uploaded media ID or existing value\n  * `Categories`\n  * `Tags`\n* **Notes:** Centralizes all post-related data into a single payload object.\n### 8. create_post\n* **Purpose:** Creates a new WordPress post.\n* **Notes:** Posts are created as drafts for editorial review or later publishing.\n",
+        "height": 1288,
+        "width": 1420,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1328,
+        -1136
+      ],
+      "typeVersion": 1,
+      "id": "748c1a12-5b5f-470a-81b7-df62da4e35e5",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $node[\"validate_payload\"].json.PostContent;\n\n// Match both single and double quotes in src attribute\nconst matches = [...html.matchAll(/<img[^>]+src=['\"]([^'\"]+)['\"]/g)];\n\nconst urls = matches.map(m => m[1]);\n\nreturn urls.map(url => ({ json: { imageUrl: url } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2688,
+        -96
+      ],
+      "id": "8b2c690e-1c14-4bd1-bbda-bf2096dc480c",
+      "name": "extract_image_urls",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2df0f9d5-bb5b-4e1e-bd60-844862c766e5",
+              "name": "invalid_urls",
+              "value": "={{ $json.imageUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2144,
+        16
+      ],
+      "id": "b6b0be47-d239-458a-8707-94f6374e6dfc",
+      "name": "invalid_urls"
+    },
+    {
+      "parameters": {
+        "content": "## Payload\nPropertyID\nPostTitle\nPostContent\nPostStatus\nFeaturedImageURL",
+        "height": 180,
+        "width": 180,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -4272,
+        -32
+      ],
+      "typeVersion": 1,
+      "id": "cf2333fc-8267-4337-a854-ac8ddb033ce0",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Wordpress Credentials').first().json.WPURL + \"/wp-json/wp/v2/media\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('set_headers').first().json.header }}"
+            },
+            {
+              "name": "Content-Disposition",
+              "value": "=attachment; filename=\"{{ $('get_image').item.json.imageUrl.extractDomain() }}.jpeg\""
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        -64
+      ],
+      "id": "9ed94ed2-e937-436d-8d11-14498d71d200",
+      "name": "upload_images_to_wordpress"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1936,
+        -128
+      ],
+      "id": "9ae59488-8596-4d24-9e6f-c507197a2031",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a48fb744-e755-4ab5-92dc-190c234c1df7",
+              "name": "header",
+              "value": "=Basic {{ ($json.WPLogin + \":\" + $json.WPPassword ).base64Encode() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2848,
+        -96
+      ],
+      "id": "c402927d-7aab-42f4-992c-ad0666740941",
+      "name": "set_headers"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e56e725e-f26c-4643-ba5a-af575edeea19",
+              "leftValue": "={{ $json.WPLogin }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "15aee996-20e7-4ea2-aee1-e547bd73a8f1",
+              "leftValue": "={{ $json.WPPassword }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "67cdb555-2fba-41a0-9f79-0874e0c27758",
+              "leftValue": "={{ $json.WPURL }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3088,
+        -80
+      ],
+      "id": "86baa16f-044a-4d03-8fa7-41b9ae6507d1",
+      "name": "check_wordpress_credentials"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "8bff9ac8-2daf-402d-b36b-a6afbeefa4fa",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -4016,
+        -64
+      ],
+      "id": "305e6618-7109-4398-8035-985a4e219d4e",
+      "name": "Webhook1",
+      "webhookId": "8bff9ac8-2daf-402d-b36b-a6afbeefa4fa"
+    },
+    {
+      "parameters": {
+        "jsCode": "return[\n{\n  \"WPLogin\": \"sitemanager\",\n  \"WPPassword\": \"6WNIx4sD8kGMrmdIeBjCGkzF\",\n  \"WPURL\": \"https://c1mdev.com/c1m.ai\"\n}\n]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3488,
+        -80
+      ],
+      "id": "0206c119-b58e-404e-90c9-fc753037c21c",
+      "name": "Wordpress Credentials"
+    },
+    {
+      "parameters": {
+        "content": "## TODO\n\nNeed to update this with DB call for credential in production mode",
+        "height": 240,
+        "width": 384,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3552,
+        -192
+      ],
+      "typeVersion": 1,
+      "id": "26a4aafe-3e91-4b9b-8544-ebb209a627fc",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f01b76e1-4629-435a-93c6-52466c6da597",
+              "leftValue": "={{ $('get_image').item.json.imageUrl?.extractDomain() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1776,
+        -80
+      ],
+      "id": "bc451719-ca07-415a-b147-f42ebe1a70e1",
+      "name": "Check extractDomain is exists"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT WPLogin, WPPassword, WPURL \nFROM Property \nWHERE PropertyID = {{ $('Webhook1').first().json.body.PropertyID }};\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -3296,
+        -80
+      ],
+      "id": "e42dc435-bf01-44a9-9374-f22d9508cf68",
+      "name": "get_wordPress_Credentials",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "pU3pmoenXHVv0S0U",
+          "name": "MySQL-LeadDB"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$('Wordpress Credentials').first().json.WPURL + '/wp-json/wp/v2/posts' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $node['set_headers'].json.header }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $json.Title }}\",\n  \"content\": {{ JSON.stringify($json.PostContent)}},\n  \"featured_media\":{{ $json.Featured_media }},\n  \"status\": \"draft\",\n  \"categories\": {{ $json.Categories }},\n  \"tags\": {{ $json.Tags }}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "3145ba27-ed5b-4e44-83ae-5864f267af6b",
+      "name": "create_post",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3994df9b-d720-4d6f-a7be-d99c8ad86eb7",
+              "leftValue": "={{ $('validate_payload').first().json.FeaturedImageURL.match(/^\\d+$/) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -944,
+        16
+      ],
+      "id": "06f2a503-7362-4643-bf1f-5601e25e7df6",
+      "name": "Check featured media"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('validate_payload').first().json.FeaturedImageURL }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -800,
+        -144
+      ],
+      "id": "7b8b5e9d-f421-40cd-8f55-f5badb5a385a",
+      "name": "download_featured_image",
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Wordpress Credentials').first().json.WPURL + \"/wp-json/wp/v2/media\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Disposition",
+              "value": "=attachment; filename=\"{{$('has_payload').first().json.FeaturedImageURL.extractUrlPath()}}\""
+            },
+            {
+              "name": "Authorization ",
+              "value": "={{ $('set_headers').first().json.header }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -576,
+        -160
+      ],
+      "id": "5dc1d9ee-bbb1-475e-8097-f2ea395c6463",
+      "name": "upload_featured_image"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12585a9c-670a-4899-8942-7e5475032f34",
+              "name": "executionState",
+              "value": "=Start",
+              "type": "string"
+            },
+            {
+              "id": "3abe7a8f-f926-48bd-ba76-620e4051c5bf",
+              "name": "metaData",
+              "value": "={executedNode :'Webhook'}",
+              "type": "string"
+            },
+            {
+              "id": "dc3cc9d1-2ede-410c-8475-da0aa153e61d",
+              "name": "=body",
+              "value": "={message: 'Flow started', body: 'title: {{ $json.body.PostTitle }}' }",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3920,
+        192
+      ],
+      "id": "26953d98-8381-4f83-9c00-53e0dcdadf5b",
+      "name": "Start execution"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12585a9c-670a-4899-8942-7e5475032f34",
+              "name": "executionState",
+              "value": "=Warn",
+              "type": "string"
+            },
+            {
+              "id": "3abe7a8f-f926-48bd-ba76-620e4051c5bf",
+              "name": "metaData",
+              "value": "={exectedNode:'has_payload'}",
+              "type": "string"
+            },
+            {
+              "id": "dc3cc9d1-2ede-410c-8475-da0aa153e61d",
+              "name": "=body",
+              "value": "={message: 'Incorrect payload', body:{{ JSON.stringify($json) }}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3600,
+        192
+      ],
+      "id": "7a0b7adb-9d32-4acc-bf4c-cee017371b9f",
+      "name": "Incorrect payload"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12585a9c-670a-4899-8942-7e5475032f34",
+              "name": "executionState",
+              "value": "=Error",
+              "type": "string"
+            },
+            {
+              "id": "3abe7a8f-f926-48bd-ba76-620e4051c5bf",
+              "name": "metaData",
+              "value": "={exectedNode:'wordpress_credentials not found'}",
+              "type": "string"
+            },
+            {
+              "id": "dc3cc9d1-2ede-410c-8475-da0aa153e61d",
+              "name": "=body",
+              "value": "={message: 'wordpress_credentials not found'}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2992,
+        192
+      ],
+      "id": "44ec4162-53da-4fdb-969b-e9c95e775bf9",
+      "name": "wordpress_credentials not found1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12585a9c-670a-4899-8942-7e5475032f34",
+              "name": "executionState",
+              "value": "=Error",
+              "type": "string"
+            },
+            {
+              "id": "3abe7a8f-f926-48bd-ba76-620e4051c5bf",
+              "name": "metaData",
+              "value": "={exectedNode:'invalid_featured_image'}",
+              "type": "string"
+            },
+            {
+              "id": "dc3cc9d1-2ede-410c-8475-da0aa153e61d",
+              "name": "=body",
+              "value": "={message: 'invalid_featured_image',  body:{{ JSON.stringify($json) }}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -640,
+        192
+      ],
+      "id": "4001ca51-62c4-4d09-84ed-bfb0eb0760f1",
+      "name": "invalid_featured_image1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12585a9c-670a-4899-8942-7e5475032f34",
+              "name": "executionState",
+              "value": "=Error",
+              "type": "string"
+            },
+            {
+              "id": "3abe7a8f-f926-48bd-ba76-620e4051c5bf",
+              "name": "metaData",
+              "value": "={exectedNode:'Unable to create wordPress post'}",
+              "type": "string"
+            },
+            {
+              "id": "dc3cc9d1-2ede-410c-8475-da0aa153e61d",
+              "name": "=body",
+              "value": "={message: 'Unable to create wordPress post',  body:{{ JSON.stringify($json) }}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        192
+      ],
+      "id": "e9faddbd-24c8-4e75-988b-4b500f97c27b",
+      "name": "Unable to create wordPress post"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://admin.n8n.c1m.ai/webhook/7fd5766d-c2de-47c5-8e5a-df80535a7ad3",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        352,
+        192
+      ],
+      "id": "35951d92-c260-4560-bd07-e950c059cef2",
+      "name": "Invoke TOOL-LogEvent",
+      "notesInFlow": true,
+      "disabled": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  propertyId: 188375,\n  serviceId: $workflow.id,\n  serviceName: \"Tool-Create-WordPress-Post-ImageOptional\",\n  executionDatetime: new Date().getTime(),\n  executionId: $execution.id,\n  executionState: $input.first().json.executionState,\n  data: JSON.stringify({\n    type: $input.first().json.executionState,\n    content: $input.first().json.body || {}\n  }),\n  metadata: $input.first().json.metaData,\n  workflowCreator: \"ppatel@c1m.ai\"\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        192
+      ],
+      "id": "a3488699-1737-47a1-b2f4-8000717b3fc9",
+      "name": "Prepare payload for TOOL-LogEvent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Log Event Workflow\n\n**1. Prepare Payload for TOOL‑LogEvent**\n\n* Uses a **Code node** (`Prepare payload for TOOL‑LogEvent`) to build a structured JSON payload that includes metadata like workflow ID, execution info, custom data, and request body details.\n\n**2. Invoke TOOL‑LogEvent**\n\n* Uses an **HTTP Request node** (`Invoke TOOL‑LogEvent`) to send that payload as a **POST** request to an external webhook endpoint for logging or monitoring.\n* Both nodes are configured with `onError: continueRegularOutput`, ensuring the workflow continues even if errors occur.\n\n### **Purpose and Flow**\n\n* The first node gathers and formats key execution data.\n* The second node transmits this data to a remote logging endpoint.\n* This setup facilitates **automated logging** while maintaining workflow resilience.\n",
+        "height": 704,
+        "width": 496
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        144,
+        -336
+      ],
+      "typeVersion": 1,
+      "id": "fb3e0056-ce3b-4108-93b0-3f05ef74dade",
+      "name": "Sticky Note12"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        192
+      ],
+      "id": "ee68a928-5688-4dd9-a839-b3549d53ff78",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12585a9c-670a-4899-8942-7e5475032f34",
+              "name": "executionState",
+              "value": "=Complete",
+              "type": "string"
+            },
+            {
+              "id": "3abe7a8f-f926-48bd-ba76-620e4051c5bf",
+              "name": "metaData",
+              "value": "={executedNode:'create_post'}",
+              "type": "string"
+            },
+            {
+              "id": "dc3cc9d1-2ede-410c-8475-da0aa153e61d",
+              "name": "=body",
+              "value": "={message: 'WordPress post created successfully ', body:{{ JSON.stringify($json) }}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        192
+      ],
+      "id": "e7a633ee-1ef3-4cc2-b554-a2174b5661c6",
+      "name": "WordPress post created successfully"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "validate_payload": {
+      "main": [
+        [
+          {
+            "node": "has_payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "has_payload": {
+      "main": [
+        [
+          {
+            "node": "Wordpress Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Incorrect payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_image": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "invalid_urls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract_image_url": {
+      "main": [
+        [
+          {
+            "node": "replace_urls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "replace_urls": {
+      "main": [
+        [
+          {
+            "node": "Check featured media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_payload": {
+      "main": [
+        [
+          {
+            "node": "create_post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "clean_html": {
+      "main": [
+        [
+          {
+            "node": "set_payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "get_image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "no_url_found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract_image_urls": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload_images_to_wordpress": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "extract_image_url",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check extractDomain is exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_headers": {
+      "main": [
+        [
+          {
+            "node": "extract_image_urls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_wordpress_credentials": {
+      "main": [
+        [
+          {
+            "node": "set_headers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "wordpress_credentials not found1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "validate_payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Start execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "no_url_found": {
+      "main": [
+        [
+          {
+            "node": "Check featured media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wordpress Credentials": {
+      "main": [
+        [
+          {
+            "node": "get_wordPress_Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "invalid_urls": {
+      "main": [
+        [
+          {
+            "node": "Check featured media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check extractDomain is exists": {
+      "main": [
+        [
+          {
+            "node": "upload_images_to_wordpress",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_wordPress_Credentials": {
+      "main": [
+        [
+          {
+            "node": "check_wordpress_credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check featured media": {
+      "main": [
+        [
+          {
+            "node": "clean_html",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "download_featured_image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_featured_image": {
+      "main": [
+        [
+          {
+            "node": "upload_featured_image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "invalid_featured_image1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload_featured_image": {
+      "main": [
+        [
+          {
+            "node": "clean_html",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_post": {
+      "main": [
+        [
+          {
+            "node": "WordPress post created successfully",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unable to create wordPress post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoke TOOL-LogEvent": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare payload for TOOL-LogEvent": {
+      "main": [
+        [
+          {
+            "node": "Invoke TOOL-LogEvent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress post created successfully": {
+      "main": [
+        [
+          {
+            "node": "Prepare payload for TOOL-LogEvent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unable to create wordPress post": {
+      "main": [
+        [
+          {
+            "node": "Prepare payload for TOOL-LogEvent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "invalid_featured_image1": {
+      "main": [
+        [
+          {
+            "node": "Prepare payload for TOOL-LogEvent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wordpress_credentials not found1": {
+      "main": [
+        [
+          {
+            "node": "Prepare payload for TOOL-LogEvent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incorrect payload": {
+      "main": [
+        [
+          {
+            "node": "Prepare payload for TOOL-LogEvent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start execution": {
+      "main": [
+        [
+          {
+            "node": "Prepare payload for TOOL-LogEvent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c3315a23-df35-4a2f-b397-c004a1d2e4d3",
+  "meta": {
+    "instanceId": "cdb933c56d4d2fd569a441b2b7966e0e27d761306d8926e1440759978db55554"
+  },
+  "id": "NvcIN4qWDRN999P7",
+  "tags": [
+    {
+      "updatedAt": "2025-10-29T13:28:02.108Z",
+      "createdAt": "2025-10-29T13:28:02.108Z",
+      "id": "8zaoedr4dAouyRw8",
+      "name": "Webhook"
+    }
+  ]
+}
